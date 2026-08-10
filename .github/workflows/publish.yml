@@ -51,31 +51,8 @@ jobs:
         with:
           cache-version: 1
 
-      - name: LaTeX packages for Quarto PDF
-        run: |
-          tlmgr update --self
-          tlmgr install \
-            koma-script \
-            amsmath \
-            unicode-math \
-            fancyhdr \
-            booktabs \
-            caption \
-            float \
-            pdfpages \
-            xcolor \
-            geometry \
-            setspace \
-            fancyvrb \
-            framed \
-            mdwtools \
-            multirow \
-            etoolbox \
-            footnotehyper \
-            footnote \
-            xurl \
-            bookmark
-
+      # Quarto's PDF engine auto-installs missing CTAN packages via tlmgr
+      # (latex-auto-install defaults to true) — no preemptive tlmgr step.
       - name: Render Quarto book (HTML + PDF)
         run: quarto render
         env:
