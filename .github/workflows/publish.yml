@@ -2,12 +2,6 @@
 #
 # Source branch: main (default). Publishing branch: gh-pages.
 # Workflow builds `_book/` then deploys that folder to `gh-pages` (root).
-#
-# One-time GitHub settings (keep main as default branch):
-#   Settings → Pages → Build and deployment
-#     Source: Deploy from a branch
-#     Branch: gh-pages / (root)
-#   Settings → Actions → General → Workflow permissions → Read and write
 
 on:
   workflow_dispatch:
@@ -29,8 +23,15 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Quarto
+      # TinyTeX via Quarto (not r-lib/setup-tinytex). Quarto ≥1.10 picks
+      # ARM64 Linux bundles correctly (fixes quarto-cli#12124 / PR #14181).
+      - name: Set up Quarto (+ TinyTeX)
         uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          version: "1.10.18"
+          tinytex: true
 
       - name: Install Chrome (Mermaid → PDF/PNG)
         id: setup-chrome
@@ -44,9 +45,6 @@ jobs:
 
       - name: Install pandoc
         uses: r-lib/actions/setup-pandoc@v2
-
-      - name: Install TinyTeX (PDF)
-        uses: r-lib/actions/setup-tinytex@v2
 
       - name: Install R dependencies (renv)
         uses: r-lib/actions/setup-renv@v2
@@ -84,16 +82,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
           NITER: "100"
-
-      - name: Ensure .nojekyll for GitHub Pages
-        run: touch _book/.nojekyll
-
-      - name: Upload book artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: quarto-book
-          path: _book
-          if-no-files-found: error
 
       - name: Deploy to GitHub Pages (gh-pages branch)
         if: github.event_name != 'pull_request'
