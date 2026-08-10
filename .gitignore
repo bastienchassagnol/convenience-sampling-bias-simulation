@@ -39,8 +39,12 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# pkgdown site
+# Quarto / book output (published via gh-pages action)
+.quarto/
+_book/
 docs/
+site_libs/
+/index.html
 
 # translation temp files
 po/*~
@@ -51,5 +55,16 @@ rsconnect/
 # Local RAG bibliography (entire folder)
 biblio/rag-based/
 
-# Local libnode copy for dagitty / V8 (optional project-local cache)
+# Local libnode / caches
 scripts/.cache/
+
+# renv local library (lockfile is committed)
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/staging/
+
+/.quarto/
+**/*.quarto_ipynb

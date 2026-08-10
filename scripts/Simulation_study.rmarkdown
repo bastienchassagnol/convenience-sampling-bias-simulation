@@ -844,3 +844,4 @@ writeLines(
   paste0("sessionInfo_", Sys.Date(), ".txt")
 )
 ```
+

@@ -1,0 +1,104 @@
+# Quarto Publish (book → GitHub Pages)
+#
+# Source branch: main (default). Publishing branch: gh-pages.
+# Workflow builds `_book/` then deploys that folder to `gh-pages` (root).
+#
+# One-time GitHub settings (keep main as default branch):
+#   Settings → Pages → Build and deployment
+#     Source: Deploy from a branch
+#     Branch: gh-pages / (root)
+#   Settings → Actions → General → Workflow permissions → Read and write
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+name: Quarto Publish
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Install Chrome (Mermaid → PDF/PNG)
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "release"
+          use-public-rspm: true
+
+      - name: Install pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+
+      - name: Install TinyTeX (PDF)
+        uses: r-lib/actions/setup-tinytex@v2
+
+      - name: Install R dependencies (renv)
+        uses: r-lib/actions/setup-renv@v2
+        with:
+          cache-version: 1
+
+      - name: LaTeX packages for Quarto PDF
+        run: |
+          tlmgr update --self
+          tlmgr install \
+            koma-script \
+            amsmath \
+            unicode-math \
+            fancyhdr \
+            booktabs \
+            caption \
+            float \
+            pdfpages \
+            xcolor \
+            geometry \
+            setspace \
+            fancyvrb \
+            framed \
+            mdwtools \
+            multirow \
+            etoolbox \
+            footnotehyper \
+            footnote \
+            xurl \
+            bookmark
+
+      - name: Render Quarto book (HTML + PDF)
+        run: quarto render
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHROME_PATH: ${{ steps.setup-chrome.outputs.chrome-path }}
+          NITER: "100"
+
+      - name: Ensure .nojekyll for GitHub Pages
+        run: touch _book/.nojekyll
+
+      - name: Upload book artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarto-book
+          path: _book
+          if-no-files-found: error
+
+      - name: Deploy to GitHub Pages (gh-pages branch)
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: _book
+          clean: true

@@ -1,0 +1,45 @@
+project:
+  type: book
+  output-dir: _book
+  execute-dir: file
+
+book:
+  title: "Convenience sampling bias simulation"
+  author: ""
+  date: today
+  chapters:
+    - index.qmd
+    - scripts/Simulation_study.qmd
+  repo-url: https://github.com/bastienchassagnol/convenience-sampling-bias-simulation
+  repo-actions: [source, issue]
+  downloads: [pdf]
+  sidebar:
+    style: docked
+    search: true
+
+bibliography: []
+
+format:
+  html:
+    theme: flatly
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    fig-width: 7
+    fig-height: 5
+    mermaid:
+      theme: forest
+  pdf:
+    documentclass: scrreport
+    toc: true
+    number-sections: true
+    fig-width: 6
+    fig-height: 4.5
+    mermaid-format: png
+
+execute:
+  warning: false
+  message: true
+  freeze: false

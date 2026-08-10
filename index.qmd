@@ -1,0 +1,11 @@
+# Preface {.unnumbered}
+
+This Quarto book documents a many-analysts-style pilot on **convenience sampling bias**: when do effect-size estimates from non-representative samples generalise to the target population?
+
+The single technical chapter is the confirmatory and exploratory simulation study in @sec-implementation (file `scripts/Simulation_study.qmd`). It implements:
+
+* probabilistic (logistic) and deterministic (sinusoidal) range restriction on continuous $X$;
+* Monte Carlo evaluation of mean relative bias and power via `Helper.R`;
+* exploratory violations: collider / selection-induced endogeneity, confounding, negative-binomial mean–variance coupling, and linear mixed models with group-level selection.
+
+HTML and PDF editions are built automatically on GitHub Actions and published to GitHub Pages.
