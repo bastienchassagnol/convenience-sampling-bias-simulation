@@ -12,7 +12,7 @@ book:
     - scripts/Simulation_study.qmd
   repo-url: https://github.com/bastienchassagnol/convenience-sampling-bias-simulation
   repo-actions: [source, issue]
-  downloads: [pdf]
+  # downloads: [pdf]  # re-enable with format: pdf below
   sidebar:
     style: docked
     search: true
@@ -25,21 +25,35 @@ format:
     toc: true
     toc-depth: 2
     number-sections: true
-    code-fold: show
+    # https://quarto.org/docs/output-formats/html-code.html
+    code-fold: true
+    code-overflow: wrap
     code-tools: true
+    code-copy: true
+    code-link: true
+    code-line-numbers: false
+    code-block-bg: true
+    code-block-border-left: "#28A745"
+    syntax-highlighting: github
     fig-width: 7
     fig-height: 5
     mermaid:
       theme: forest
-  pdf:
-    documentclass: scrreport
-    toc: true
-    number-sections: true
-    fig-width: 6
-    fig-height: 4.5
-    mermaid-format: png
+  # PDF disabled for faster CI / local renders; uncomment to restore.
+  # pdf:
+  #   documentclass: scrreport
+  #   toc: true
+  #   number-sections: true
+  #   fig-width: 6
+  #   fig-height: 4.5
+  #   mermaid-format: png
 
 execute:
   warning: false
   message: true
-  freeze: false
+  # Re-execute only when source changes; commit `_freeze/` for CI reuse
+  # https://quarto.org/docs/projects/code-execution.html#freeze
+  freeze: auto
+  # Knitr/Jupyter chunk cache for faster local/CI recomputation
+  # https://quarto.org/docs/projects/code-execution.html#cache
+  cache: true

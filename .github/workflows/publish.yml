@@ -51,6 +51,10 @@ jobs:
         with:
           cache-version: 1
 
+      # downlit is required for Quarto HTML code-link (see _quarto.yml).
+      - name: Ensure downlit for code-link
+        run: Rscript -e 'if (!requireNamespace("downlit", quietly = TRUE)) renv::install("downlit")'
+
       # Quarto's PDF engine auto-installs missing CTAN packages via tlmgr
       # (latex-auto-install defaults to true) — no preemptive tlmgr step.
       - name: Render Quarto book (HTML + PDF)

@@ -1,7 +1,5 @@
 ---
 title: "Pilot study — convenience sampling bias"
-author: ""
-date: today
 ---
 
 ## Implementation {#sec-implementation}
@@ -17,15 +15,8 @@ If the script does not run and there are no error messages check again the upper
 If you do not find the problem, feel free to contact us: [multi.analyst@stat.uni-muenchen.de](mailto:multi.analyst@stat.uni-muenchen.de){.email}
 
 ```{r setup}
-# Resolve Helper.R whether the chapter is rendered from scripts/ or the book root
-helper_path <- if (file.exists("Helper.R")) {
-  "Helper.R"
-} else if (file.exists("scripts/Helper.R")) {
-  "scripts/Helper.R"
-} else {
-  stop("Cannot find Helper.R")
-}
-source(helper_path)
+# execute-dir: file → chapter cwd is scripts/
+source("Helper.R")
 
 # Helper.R writes fixed PNG names; rename after each scenario
 rename_sim_figures <- function(tag) {
@@ -47,9 +38,22 @@ rename_sim_figures <- function(tag) {
   }
   invisible(tag)
 }
+```
 
-# Run checks + Monte Carlo + bias / power figures for one DGP
-run_scenario <- function(dgp_fun, tag) {
+Without a thin wrapper, each Monte Carlo scenario would repeat the same four confirmatory steps (`checks()`, `run_simulations()`, `simulation_results()`, `power()`) plus renaming of the fixed PNG filenames that `Helper.R` writes. @lst-run-scenario packages that pipeline so every DGP only needs its function and a figure tag, while still receiving all design parameters as explicit arguments (no reliance on the calling environment).
+
+```{r}
+#| label: lst-run-scenario
+#| lst-cap: "run_scenario() — confirmatory checks, Monte Carlo, bias/power plots, and figure renaming for one DGP."
+run_scenario <- function(
+  dgp_fun,
+  tag,
+  niter = 100L,
+  beta1 = c(0.2, 0.5, 0.8),
+  restrict = c("none", "weak", "moderate", "strong"),
+  n = 100L,
+  formula = y ~ x
+) {
   checks(niter, beta1, restrict, n, formula, dgp_fun)
   sim_out <- run_simulations(niter, beta1, restrict, n, formula, dgp_fun)
   simulation_results(sim_out, restrict)
@@ -61,7 +65,7 @@ run_scenario <- function(dgp_fun, tag) {
 
 #### Sampling process (DAG)
 
-We follow Supplement S1 and represent convenience sampling with a selection indicator $S$, where $S = 1$ if an observation is retained. The **selection process** shapes which values of $X$ enter the convenience sample ($S \to X$). The structural model for $Y$ remains $X \to Y$.
+We follow [Supplement S1](../biblio/Supplement%20S1.pdf) and represent convenience sampling with a selection indicator $S$, where $S = 1$ if an observation is retained. The **selection process** shapes which values of $X$ enter the convenience sample ($S \to X$). The structural model for $Y$ remains $X \to Y$.
 
 For **probabilistic restriction on $X$**,
 
@@ -96,8 +100,7 @@ dgp <- function(
   n,
   beta0 = 0,
   sigma = 1,
-  pool_mult = 40L,
-  ...
+  pool_mult = 40L
 ) {
   restrict <- match.arg(restrict)
 
@@ -118,32 +121,21 @@ dgp <- function(
     data.frame(x = x, y = y)
   }
 
+  # One-shot pool: draw n * pool_mult, keep selected rows, take first n
   sample_selected <- function(score_fun, n) {
     if (isTRUE(all.equal(gamma, 0))) {
       return(draw_population(n))
     }
-    out <- list()
-    n_got <- 0L
-    batch <- as.integer(max(n, ceiling(n * pool_mult / 10)))
-    guard <- 0L
-    while (n_got < n && guard < 200L) {
-      guard <- guard + 1L
-      pop <- draw_population(batch)
-      p <- plogis(alpha + gamma * score_fun(pop))
-      keep <- runif(nrow(pop)) < p
-      sel <- pop[keep, , drop = FALSE]
-      if (nrow(sel) > 0L) {
-        out[[length(out) + 1L]] <- sel
-        n_got <- n_got + nrow(sel)
-      }
-    }
-    if (n_got < n) {
+    pop <- draw_population(as.integer(n * pool_mult))
+    keep <- runif(nrow(pop)) < plogis(alpha + gamma * score_fun(pop))
+    sel <- pop[keep, , drop = FALSE]
+    if (nrow(sel) < n) {
       stop(
         "Could not obtain n selected observations; ",
         "try a larger pool_mult or weaker gamma."
       )
     }
-    do.call(rbind, out)[seq_len(n), , drop = FALSE]
+    sel[seq_len(n), , drop = FALSE]
   }
 
   if (restrict == "none") {
@@ -202,8 +194,7 @@ dgp_det <- function(
   n,
   beta0 = 0,
   sigma = 1,
-  pool_mult = 60L,
-  ...
+  pool_mult = 60L
 ) {
   restrict <- match.arg(restrict)
 
@@ -232,27 +223,16 @@ dgp_det <- function(
     if (restrict == "none") {
       return(draw_population(n))
     }
-    out <- list()
-    n_got <- 0L
-    batch <- as.integer(max(n, ceiling(n * pool_mult / 10)))
-    guard <- 0L
-    while (n_got < n && guard < 300L) {
-      guard <- guard + 1L
-      pop <- draw_population(batch)
-      keep <- sin(omega * value_fun(pop)) > cutoff
-      sel <- pop[keep, , drop = FALSE]
-      if (nrow(sel) > 0L) {
-        out[[length(out) + 1L]] <- sel
-        n_got <- n_got + nrow(sel)
-      }
-    }
-    if (n_got < n) {
+    pop <- draw_population(as.integer(n * pool_mult))
+    keep <- sin(omega * value_fun(pop)) > cutoff
+    sel <- pop[keep, , drop = FALSE]
+    if (nrow(sel) < n) {
       stop(
         "Could not obtain n deterministic selections; ",
         "try a larger pool_mult or weaker cutoff."
       )
     }
-    do.call(rbind, out)[seq_len(n), , drop = FALSE]
+    sel[seq_len(n), , drop = FALSE]
   }
 
   if (restrict == "none") {
@@ -314,8 +294,10 @@ beta1 <- c(0.2, 0.5, 0.8)
 
 #### Number of observations per sample
 
+We focus on small sample sizes, so $n$ is set to $100$:
+
 ```{r n}
-n <- 500L
+n <- 100L
 ```
 
 #### Model formula
@@ -335,9 +317,7 @@ If no errors or warnings occur, your DGP is valid and you can proceed with the s
 **Run the simulation:** Once the checks pass, use the *run_simulations()* function to perform the Monte Carlo iterations. The wrapper collects per-iteration results and then computes summary quantities across iterations (mean relative bias, Monte Carlo standard error of the mean, and 95% simulation interval).
 
 ```{r iterate}
-# suggested number for reliable results niter = 10000
-# Override in CI with e.g. NITER=50
-niter <- as.integer(Sys.getenv("NITER", unset = "100"))
+niter <- 100
 ```
 
 **Represent the results:** Run the two following functions. *simulation_results()* returns two
@@ -349,13 +329,29 @@ All figures will be saved in the same folder where your Helper.R script is locat
 ##### Probabilistic (logistic) selection
 
 ```{r render-summary-logistic}
-sim <- run_scenario(dgp, "logistic")
+sim <- run_scenario(
+  dgp,
+  "logistic",
+  niter = niter,
+  beta1 = beta1,
+  restrict = restrict,
+  n = n,
+  formula = formula
+)
 ```
 
 ##### Deterministic (sinusoidal) selection
 
 ```{r render-summary-deterministic}
-sim_det <- run_scenario(dgp_det, "sinusoidal")
+sim_det <- run_scenario(
+  dgp_det,
+  "sinusoidal",
+  niter = niter,
+  beta1 = beta1,
+  restrict = restrict,
+  n = n,
+  formula = formula
+)
 ```
 
 ## Exploratory part
@@ -444,8 +440,7 @@ dgp_collider <- function(
   n,
   beta0 = 0,
   sigma = 1,
-  pool_mult = 50L,
-  ...
+  pool_mult = 50L
 ) {
   restrict <- match.arg(restrict)
   # strength of the epsilon path into S (joint selection)
@@ -476,30 +471,19 @@ dgp_collider <- function(
     if (restrict == "none") {
       return(draw_one(n)[, c("x", "y")])
     }
-    out <- list()
-    n_got <- 0L
-    batch <- as.integer(max(n, ceiling(n * pool_mult / 10)))
-    guard <- 0L
-    while (n_got < n && guard < 250L) {
-      guard <- guard + 1L
-      pop <- draw_one(batch)
-      # joint selection: logit depends on (x, eps) or (y, eps)
-      score <- if (on_y) {
-        gamma_x * pop$y + gamma_e * pop$eps
-      } else {
-        gamma_x * pop$x + gamma_e * pop$eps
-      }
-      keep <- runif(nrow(pop)) < plogis(alpha + score)
-      sel <- pop[keep, c("x", "y"), drop = FALSE]
-      if (nrow(sel) > 0L) {
-        out[[length(out) + 1L]] <- sel
-        n_got <- n_got + nrow(sel)
-      }
+    pop <- draw_one(as.integer(n * pool_mult))
+    # joint selection: logit depends on (x, eps) or (y, eps)
+    score <- if (on_y) {
+      gamma_x * pop$y + gamma_e * pop$eps
+    } else {
+      gamma_x * pop$x + gamma_e * pop$eps
     }
-    if (n_got < n) {
+    keep <- runif(nrow(pop)) < plogis(alpha + score)
+    sel <- pop[keep, c("x", "y"), drop = FALSE]
+    if (nrow(sel) < n) {
       stop("Collider DGP: not enough selected rows.")
     }
-    do.call(rbind, out)[seq_len(n), , drop = FALSE]
+    sel[seq_len(n), , drop = FALSE]
   }
 
   if (restrict == "none") {
@@ -535,7 +519,15 @@ cat(
 ##### Mean relative bias and power (collider)
 
 ```{r exploratory-collider-results}
-sim_col <- run_scenario(dgp_collider, "collider")
+sim_col <- run_scenario(
+  dgp_collider,
+  "collider",
+  niter = niter,
+  beta1 = beta1,
+  restrict = restrict,
+  n = n,
+  formula = formula
+)
 ```
 
 ### ii) $S$ as a confounder
@@ -560,8 +552,7 @@ dgp_confounder <- function(
   beta0 = 0,
   sigma = 1,
   beta_z = 0.8,
-  pool_mult = 40L,
-  ...
+  pool_mult = 40L
 ) {
   restrict <- match.arg(restrict)
   gamma <- switch(
@@ -584,24 +575,13 @@ dgp_confounder <- function(
     if (restrict == "none") {
       return(draw_population(n)[, c("x", "y")])
     }
-    out <- list()
-    n_got <- 0L
-    batch <- as.integer(max(n, ceiling(n * pool_mult / 10)))
-    guard <- 0L
-    while (n_got < n && guard < 200L) {
-      guard <- guard + 1L
-      pop <- draw_population(batch)
-      keep <- runif(nrow(pop)) < plogis(alpha + gamma * pop$z)
-      sel <- pop[keep, c("x", "y"), drop = FALSE]
-      if (nrow(sel) > 0L) {
-        out[[length(out) + 1L]] <- sel
-        n_got <- n_got + nrow(sel)
-      }
-    }
-    if (n_got < n) {
+    pop <- draw_population(as.integer(n * pool_mult))
+    keep <- runif(nrow(pop)) < plogis(alpha + gamma * pop$z)
+    sel <- pop[keep, c("x", "y"), drop = FALSE]
+    if (nrow(sel) < n) {
       stop("Confounder DGP: not enough selected rows.")
     }
-    do.call(rbind, out)[seq_len(n), , drop = FALSE]
+    sel[seq_len(n), , drop = FALSE]
   }
 
   if (restrict == "none") {
@@ -618,7 +598,15 @@ dgp_confounder <- function(
 ##### Mean relative bias and power (confounder)
 
 ```{r exploratory-confounder-results}
-sim_cnf <- run_scenario(dgp_confounder, "confounder")
+sim_cnf <- run_scenario(
+  dgp_confounder,
+  "confounder",
+  niter = niter,
+  beta1 = beta1,
+  restrict = restrict,
+  n = n,
+  formula = formula
+)
 ```
 
 ### iii) Nonlinear mean–variance relationship (negative binomial)
@@ -646,8 +634,7 @@ dgp_negbin <- function(
   n,
   beta0 = 0.5,
   theta = 2,
-  pool_mult = 40L,
-  ...
+  pool_mult = 40L
 ) {
   restrict <- match.arg(restrict)
   gamma <- switch(
@@ -671,25 +658,13 @@ dgp_negbin <- function(
     if (isTRUE(all.equal(gamma, 0))) {
       return(draw_population(n))
     }
-    out <- list()
-    n_got <- 0L
-    batch <- as.integer(max(n, ceiling(n * pool_mult / 10)))
-    guard <- 0L
-    while (n_got < n && guard < 200L) {
-      guard <- guard + 1L
-      pop <- draw_population(batch)
-      p <- plogis(alpha + gamma * score_fun(pop))
-      keep <- runif(nrow(pop)) < p
-      sel <- pop[keep, , drop = FALSE]
-      if (nrow(sel) > 0L) {
-        out[[length(out) + 1L]] <- sel
-        n_got <- n_got + nrow(sel)
-      }
-    }
-    if (n_got < n) {
+    pop <- draw_population(as.integer(n * pool_mult))
+    keep <- runif(nrow(pop)) < plogis(alpha + gamma * score_fun(pop))
+    sel <- pop[keep, , drop = FALSE]
+    if (nrow(sel) < n) {
       stop("Negative-binomial DGP: not enough selected rows.")
     }
-    do.call(rbind, out)[seq_len(n), , drop = FALSE]
+    sel[seq_len(n), , drop = FALSE]
   }
 
   if (restrict == "none") {
@@ -721,8 +696,18 @@ ggplot(nb_demo, aes(x = mu_hat, y = y)) +
 ##### Mean relative bias and power (negative binomial)
 
 ```{r exploratory-negbin-results}
-sim_nb <- run_scenario(dgp_negbin, "negbin")
+sim_nb <- run_scenario(
+  dgp_negbin,
+  "negbin",
+  niter = niter,
+  beta1 = beta1,
+  restrict = restrict,
+  n = n,
+  formula = formula
+)
 ```
+
+<!-- Temporarily disabled: linear mixed / hierarchical exploratory section
 
 ### iv) Linear mixed model with group-level selection
 
@@ -740,9 +725,7 @@ Marginally, $\operatorname{Cov}(Y_{ij}, Y_{kj} \mid X) = \tau^2$ for $i \neq k$:
 
 Here **selection acts on groups**: $S$ retains hospitals according to a logistic function of the random effect $b_j$, so convenience samples over-represent extreme cluster effects. The analysis below still uses the confirmatory OLS formula $y \sim x$ (ignoring clustering), which is the misspecification of interest under group-level convenience sampling.
 
-```{mermaid}
-%%| label: fig-mixed-selection
-%%| fig-cap: "Linear mixed DGP with group-level selection: S depends on the hospital random effect b_j."
+```mermaid
 flowchart TB
   Bj["b_j (hospital RE)"] --> Y["Y_ij"]
   X["X_ij"] --> Y
@@ -750,7 +733,7 @@ flowchart TB
   Bj --> S["S (select hospital)"]
 ```
 
-```{r exploratory-mixed}
+```r
 dgp_mixed <- function(
   beta1,
   restrict = c("none", "weak", "moderate", "strong"),
@@ -759,8 +742,7 @@ dgp_mixed <- function(
   sigma = 1,
   tau = 0.8,
   n_per_group = 20L,
-  n_groups_pool = 80L,
-  ...
+  n_groups_pool = 80L
 ) {
   restrict <- match.arg(restrict)
   gamma <- switch(
@@ -782,7 +764,10 @@ dgp_mixed <- function(
       p_g <- plogis(alpha + gamma * b)
       keep_g <- which(runif(n_groups) < p_g)
       if (length(keep_g) < 2L) {
-        keep_g <- order(abs(b), decreasing = TRUE)[seq_len(max(2L, n_groups %/% 4))]
+        keep_g <- order(abs(b), decreasing = TRUE)[seq_len(max(
+          2L,
+          n_groups %/% 4
+        ))]
       }
     }
     rows <- list()
@@ -828,9 +813,19 @@ dgp_mixed <- function(
 
 ##### Mean relative bias and power (linear mixed model)
 
-```{r exploratory-mixed-results}
-sim_mix <- run_scenario(dgp_mixed, "mixed")
+```r
+sim_mix <- run_scenario(
+  dgp_mixed,
+  "mixed",
+  niter = niter,
+  beta1 = beta1,
+  restrict = restrict,
+  n = n,
+  formula = formula
+)
 ```
+
+-->
 
 
 ## Reproducibility information (required)
