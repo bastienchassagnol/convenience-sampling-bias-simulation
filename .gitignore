@@ -50,3 +50,6 @@ rsconnect/
 
 # Local RAG bibliography (entire folder)
 biblio/rag-based/
+
+# Local libnode copy for dagitty / V8 (optional project-local cache)
+scripts/.cache/
