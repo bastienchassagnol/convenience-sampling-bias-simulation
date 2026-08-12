@@ -17,7 +17,9 @@ book:
     style: docked
     search: true
 
-bibliography: []
+bibliography:
+  - biblio/references.bib
+link-citations: true
 
 format:
   html:
